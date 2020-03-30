@@ -1,5 +1,6 @@
 ### IMPORTS
 import json 
+import glob
 import string
 import random
 
@@ -60,26 +61,38 @@ def clean_set(raw_set, by_letters=False):
 
 	return clean_set
 
-def gen_user_corpus(sender, rpath, wpath):
+def gen_user_corpus(sender, wpath):
 	parsed_mesgs = []
 
-	with open(rpath) as rjson:
-		raw_data = json.load(rjson)
+	for mesg_corpus_path in glob.glob('message_*.json'):
+		with open(mesg_corpus_path) as rjson:
+			raw_data = json.load(rjson)
 
-		# parse only textual mesgs from given sender
-		for mesg in raw_data['messages']:
-			sname = mesg['sender_name']
+			# parse only textual mesgs from given sender
+			for mesg in raw_data['messages']:
+				sname = mesg['sender_name']
 
-			if sname == sender:
-				text_mesg = mesg.get('content')
+				if sname == sender:
+					text_mesg = mesg.get('content')
 
-				if text_mesg is not None:
-					#text_mesg = text_mesg.decode('utf-8')
-					parsed_mesgs.append(text_mesg)
+					if text_mesg is not None:
+						#text_mesg = text_mesg.decode('utf-8')
+						parsed_mesgs.append(text_mesg)
 
 	cset = clean_set((pm for pm in parsed_mesgs))
+
+	# derive corpus of only words
+	word_set = set()
+	for sent in cset:
+		words = sent.split(' ')
+		for word in words:
+			word_set.add(word)
+
+	cset.extend(word_set)
+
+	# generate final corpus
 	with open(wpath, 'w+') as corpus:
-		for mesg in parsed_mesgs:
+		for mesg in cset:
 			corpus.write(mesg + '\n')
 
 def build_mm_for_user(sender, corpus_path):
@@ -115,10 +128,10 @@ def get_next_sent_subj(sent):
 
 
 if __name__ == '__main__':
-	mu = gen_user_corpus('Michael Usachenko', 'message_7.json', 'mu_corpus.txt')
+	mu = gen_user_corpus('Michael Usachenko', 'mu_corpus.txt')
 	mu_model = build_mm_for_user('Michael Usachenko', 'mu_corpus.txt')
 
-	js = gen_user_corpus('Jonathan Shobrook', 'message_7.json', 'js_corpus.txt')
+	js = gen_user_corpus('Jonathan Shobrook', 'js_corpus.txt')
 	js_model = build_mm_for_user('Jonathan Shobrook', 'js_corpus.txt')
 
 	# generate starting sentence
@@ -127,10 +140,10 @@ if __name__ == '__main__':
 
 	# WIP: back and forth conversation. need to modify markovify libs
 	# works for a few cycles, then errors
-	"""
 	past_init = False
 	prior_resp = None
 
+	"""
 	for i in range(100):
 		if not past_init:
 			past_init = True
